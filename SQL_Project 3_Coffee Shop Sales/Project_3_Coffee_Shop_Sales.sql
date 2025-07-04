@@ -72,6 +72,11 @@ GROUP BY transaction_date;
 
 # --- Time-Based Analysis ---
 
+# What is the business hours of these stores?
+SELECT store_location, MIN(HOUR(transaction_time)) AS shift_starts, MAX(HOUR(transaction_time)) AS shift_ends
+FROM coffee_sales
+GROUP BY store_location;
+
 # 1. What are the peak transaction hours during the day?
 SELECT HOUR(transaction_time) AS transaction_hour, COUNT(transaction_id) AS num_of_transaction
 FROM coffee_sales
@@ -82,7 +87,7 @@ ORDER BY num_of_transaction DESC;
 SELECT HOUR(transaction_time) AS transaction_hour, ROUND(SUM(transaction_qty * unit_price),2) AS revenue_per_hour
 FROM coffee_sales
 GROUP BY transaction_hour
-ORDER BY transaction_hour;
+ORDER BY revenue_per_hour DESC;
 
 # 3. What is the hourly average quantity sold per store?
 SELECT store_location, HOUR(transaction_time) AS transaction_hour, ROUND(AVG(transaction_qty),2) AS avg_qty_sold
@@ -90,7 +95,7 @@ FROM coffee_sales
 GROUP BY store_location, transaction_hour
 ORDER BY store_location, transaction_hour;
 
-# 4. What is the trend of transactions across different time windows (morning, afternoon, evening)?
+# 4. What is the trend of transactions across different time windows (morning, afternoon, evening)? How much transactions are contributed by each?
 SELECT
 CASE
 	WHEN (HOUR(transaction_time) >= 6 AND HOUR(transaction_time) < 12) THEN "Morning"
@@ -100,6 +105,21 @@ END AS time_windows,
 COUNT(transaction_id) AS num_of_transaction
 FROM coffee_sales
 GROUP BY  time_windows;
+
+SET @total_transaction = (SELECT COUNT(transaction_id) AS num_of_transaction FROM coffee_sales);
+
+SELECT
+CASE
+	WHEN (HOUR(transaction_time) >= 6 AND HOUR(transaction_time) < 12) THEN "Morning"
+    WHEN (HOUR(transaction_time) >= 12 AND HOUR(transaction_time) < 16) THEN "Afternoon"
+    ELSE "Evening"
+END AS time_windows,
+ROUND((COUNT(transaction_id) / @total_transaction) * 100,0) AS proportion_transaction
+FROM coffee_sales
+GROUP BY  time_windows;
+
+# 5. What is the date range of this data?
+SELECT MIN(transaction_date) AS start_date, MAX(transaction_date) AS end_date FROM coffee_sales;
 
 # --- Store Performance ---
 
@@ -131,10 +151,16 @@ GROUP BY product_category
 ORDER BY revenue DESC;
 
 # 2. Which product types are most frequently purchased?
-SELECT product_type, COUNT(transaction_id) AS num_of_transaction
+SELECT product_type, SUM(transaction_qty) AS num_of_purchase
 FROM coffee_sales
 GROUP BY product_type
-ORDER BY num_of_transaction DESC;
+ORDER BY num_of_purchase DESC;
+
+# Which product categories are most frequently purchased?
+SELECT product_category, SUM(transaction_qty) AS num_of_purchase
+FROM coffee_sales
+GROUP BY product_category
+ORDER BY num_of_purchase DESC;
 
 # 3. What is the top-selling product by quantity?
 SELECT product_category, product_type, SUM(transaction_qty) AS total_quantity
@@ -142,12 +168,11 @@ FROM coffee_sales
 GROUP BY product_category, product_type
 ORDER BY total_quantity DESC;
 
-# 4. What is the highest revenue-generating product?
+# 4. Out of the most frequently purchase product category, Which product type is the highest revenue-generating product?
 SELECT product_category, product_type, ROUND(SUM(transaction_qty * unit_price),2) AS revenue
 FROM coffee_sales
 GROUP BY product_category, product_type
-ORDER BY revenue DESC
-LIMIT 1;
+ORDER BY revenue DESC;
 
 # 5. What is the average unit price per category/type?
 SELECT product_category, ROUND(AVG(unit_price), 2) AS avg_unit_price
@@ -184,19 +209,19 @@ ORDER BY revenue DESC;
 # Why> --> Weekdays tends to be busiest due to office work routines
 
 # Which products are sold most and least often? Which drive the most revenue for the business?
-SELECT product_category, product_type, SUM(transaction_qty) AS least_qty_sold, ROUND(SUM(transaction_qty * unit_price), 2) AS revenue
+SELECT product_category, SUM(transaction_qty) AS least_qty_sold, ROUND(SUM(transaction_qty * unit_price), 2) AS revenue
 FROM coffee_sales
-GROUP BY product_category, product_type
+GROUP BY product_category
 ORDER BY least_qty_sold
 LIMIT 1;
 
-SELECT product_category, product_type, SUM(transaction_qty) AS most_qty_sold, ROUND(SUM(transaction_qty * unit_price), 2) AS revenue
+SELECT product_category, SUM(transaction_qty) AS most_qty_sold, ROUND(SUM(transaction_qty * unit_price), 2) AS revenue
 FROM coffee_sales
-GROUP BY product_category, product_type
+GROUP BY product_category
 ORDER BY most_qty_sold DESC
 LIMIT 1;
 
-# "Green Beans" of product category "Coffee Beans" and "Brewed Chai Tea" from "Tea" category are least and most often sold products respectively. Among the two, "Brewed Chai Tea" contributes more to the revenue.
+# "Packaged Chocolate" and "Coffee" are least and most often sold products respectively. Among the two, "Coffee" contributes more to the revenue.
 
 # Which months have total revenue greater than or equal to the overall average monthly revenue?
 SET @avg_monthly_revenue =
