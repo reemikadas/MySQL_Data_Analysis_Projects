@@ -219,7 +219,7 @@ SELECT DISTINCT country FROM locations;
  LEFT JOIN locations l ON v.location_id = l.location_id
  ORDER BY l.region;
  
- -- > From 13 regions of New Zealand, the thefts are recorded in the data.
+ -- > The thefts are recorded from 13 regions of New Zealand.
 
 # Which vehicle maker is most frequently associated with thefts?
 SELECT m.make_name, COUNT(v.vehicle_id) AS num_of_theft
